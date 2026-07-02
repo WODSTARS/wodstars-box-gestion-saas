@@ -40,6 +40,7 @@ export const modules: Record<ModuleKey, ModuleConfig> = {
       { name: "name", label: "Nombre", type: "text", required: true },
       { name: "phone", label: "Teléfono", type: "text" },
       { name: "email", label: "Email", type: "email" },
+      { name: "photo_url", label: "Foto URL", type: "text" },
       { name: "plan", label: "Plan", type: "text", required: true },
       { name: "monthly_amount", label: "Monto mensual", type: "number" },
       { name: "start_date", label: "Inicio", type: "date", required: true },

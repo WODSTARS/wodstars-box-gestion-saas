@@ -16,6 +16,7 @@ const nav = [
   { href: "/staff", label: "Staff", icon: Shield },
   { href: "/inventory", label: "Inventario", icon: Package },
   { href: "/tasks", label: "Tareas", icon: ClipboardList },
+  { href: "/reports", label: "Reportes", icon: BarChart3 },
   { href: "/app", label: "App atletas", icon: Smartphone },
   { href: "/settings", label: "Ajustes", icon: Settings }
 ];

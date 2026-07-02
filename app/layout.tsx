@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SplashScreen } from "@/components/layout/splash-screen";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <SplashScreen />
+        {children}
+      </body>
     </html>
   );
 }
