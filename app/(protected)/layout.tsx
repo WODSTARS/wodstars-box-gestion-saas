@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { getAppSession, assertBoxAccess } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();
   assertBoxAccess(session);
-  if (session.isSuperadmin) redirect("/superadmin");
 
   return (
     <div className="flex min-h-screen">
