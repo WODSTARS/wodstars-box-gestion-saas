@@ -137,3 +137,44 @@ export async function requestCredit(formData: FormData) {
 
   backToApp(email, "credit_requested");
 }
+
+export async function submitPersonalRecord(formData: FormData) {
+  const memberId = String(formData.get("member_id") || "");
+  const email = String(formData.get("email") || "");
+  const movement = String(formData.get("movement") || "").trim();
+  const value = Number(formData.get("value") || 0);
+  const unit = String(formData.get("unit") || "kg").trim() || "kg";
+  const recordDate = String(formData.get("record_date") || new Date().toISOString().slice(0, 10));
+  const notes = String(formData.get("notes") || "").trim() || null;
+
+  if (!memberId || !email || !movement || !Number.isFinite(value) || value <= 0) {
+    backToApp(email, "pr_missing");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: member } = await supabase
+    .from("members")
+    .select("id, box_id, status, end_date")
+    .eq("id", memberId)
+    .single();
+
+  if (!member || !isMembershipCurrent(member)) {
+    backToApp(email, "inactive");
+  }
+
+  const { error } = await supabase.from("personal_records").insert({
+    box_id: member.box_id,
+    member_id: member.id,
+    movement,
+    value,
+    unit,
+    record_date: recordDate,
+    notes
+  });
+
+  if (error) {
+    backToApp(email, "pr_error");
+  }
+
+  backToApp(email, "pr_saved");
+}

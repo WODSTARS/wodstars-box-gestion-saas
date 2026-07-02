@@ -422,3 +422,32 @@ export async function rejectCreditRequest(id: string) {
 
   revalidatePath("/credit");
 }
+
+export async function congratulateRecord(id: string) {
+  const session = await getAppSession();
+  assertBoxAccess(session);
+  if (!session.boxId) throw new Error("Sin box");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: record, error: recordError } = await supabase
+    .from("personal_records")
+    .select("id, box_id, congrats_count")
+    .eq("id", id)
+    .eq("box_id", session.boxId)
+    .single();
+
+  if (recordError || !record) throw new Error(recordError?.message ?? "Record no encontrado");
+
+  const { error } = await supabase
+    .from("personal_records")
+    .update({
+      congrats_count: Number(record.congrats_count ?? 0) + 1,
+      last_congrats_by: session.userId,
+      last_congrats_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .eq("box_id", session.boxId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/records");
+}

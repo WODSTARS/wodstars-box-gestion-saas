@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, BarChart3, CalendarDays, ClipboardList, Dumbbell, Home, Package, ReceiptText, Settings, Shield, ShoppingCart, Smartphone, Users, WalletCards } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, ClipboardList, Dumbbell, Home, Package, ReceiptText, Settings, Shield, ShoppingCart, Smartphone, Trophy, Users, WalletCards } from "lucide-react";
 import { signOut } from "@/lib/data/actions";
 import type { AppSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const nav = [
   { href: "/expenses", label: "Gastos", icon: ReceiptText },
   { href: "/classes", label: "Clases", icon: CalendarDays },
   { href: "/wods", label: "WODs", icon: Dumbbell },
+  { href: "/records", label: "Records", icon: Trophy },
   { href: "/staff", label: "Staff", icon: Shield },
   { href: "/inventory", label: "Inventario", icon: Package },
   { href: "/tasks", label: "Tareas", icon: ClipboardList },

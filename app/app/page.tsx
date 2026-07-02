@@ -1,6 +1,6 @@
-import { CalendarDays, CheckCircle2, Clock3, CreditCard, Dumbbell, MapPin, QrCode, ShieldCheck, ShoppingBag, Sparkles, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, CreditCard, Dumbbell, MapPin, QrCode, ShieldCheck, ShoppingBag, Sparkles, Trophy, Users } from "lucide-react";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { requestCredit, reserveClass } from "./actions";
+import { requestCredit, reserveClass, submitPersonalRecord } from "./actions";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -67,7 +67,17 @@ type CreditRequest = {
   status: string;
 };
 
-type AppTab = "inicio" | "reservas" | "wod" | "tienda" | "checkin";
+type PersonalRecord = {
+  id: string;
+  movement: string;
+  value: number;
+  unit: string;
+  record_date: string;
+  notes: string | null;
+  congrats_count: number | null;
+};
+
+type AppTab = "inicio" | "reservas" | "wod" | "tienda" | "prs" | "checkin";
 
 const statusCopy: Record<string, string> = {
   reserved: "Reserva confirmada. Te esperamos en clase.",
@@ -82,7 +92,10 @@ const statusCopy: Record<string, string> = {
   credit_missing: "Faltan datos para pedir el producto.",
   credit_invalid: "No pudimos validar ese producto.",
   credit_stock: "No hay suficiente inventario disponible.",
-  credit_error: "No se pudo guardar el fiado. Revisa que la migracion 005 este aplicada en Supabase."
+  credit_error: "No se pudo guardar el fiado. Revisa que la migracion 005 este aplicada en Supabase.",
+  pr_saved: "Record personal guardado. Los coaches ya pueden verlo y felicitarte.",
+  pr_missing: "Faltan datos para guardar tu record.",
+  pr_error: "No se pudo guardar el record. Revisa que la migracion 006 este aplicada en Supabase."
 };
 
 const memberStatusCopy: Record<string, string> = {
@@ -161,7 +174,7 @@ function nextDates(days = 8) {
 }
 
 function isAppTab(value: string): value is AppTab {
-  return ["inicio", "reservas", "wod", "tienda", "checkin"].includes(value);
+  return ["inicio", "reservas", "wod", "tienda", "prs", "checkin"].includes(value);
 }
 
 function isMembershipCurrent(member: Member) {
@@ -197,6 +210,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
   let wod: WodRow | null = null;
   let products: InventoryProduct[] = [];
   let creditRequests: CreditRequest[] = [];
+  let records: PersonalRecord[] = [];
 
   if (box && email) {
     const { data } = await supabase
@@ -209,7 +223,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
   }
 
   if (box && member) {
-    const [{ data: classData }, { data: attendanceData }, { data: wodData }, { data: productData }, { data: creditData }] = await Promise.all([
+    const [{ data: classData }, { data: attendanceData }, { data: wodData }, { data: productData }, { data: creditData }, { data: recordData }] = await Promise.all([
       supabase
         .from("classes")
         .select("id, box_id, name, type, day, time, capacity, location")
@@ -241,6 +255,13 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
         .eq("box_id", box.id)
         .eq("member_id", member.id)
         .order("created_at", { ascending: false })
+        .limit(6),
+      supabase
+        .from("personal_records")
+        .select("id, movement, value, unit, record_date, notes, congrats_count")
+        .eq("box_id", box.id)
+        .eq("member_id", member.id)
+        .order("record_date", { ascending: false })
         .limit(6)
     ]);
 
@@ -249,6 +270,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
     wod = wodData ?? null;
     products = (productData ?? []) as InventoryProduct[];
     creditRequests = (creditData ?? []) as CreditRequest[];
+    records = (recordData ?? []) as PersonalRecord[];
   }
 
   const dates = nextDates();
@@ -291,6 +313,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
     { key: "reservas", label: "Reservas", icon: CalendarDays },
     { key: "wod", label: "WOD", icon: Dumbbell },
     { key: "tienda", label: "Tienda", icon: ShoppingBag },
+    { key: "prs", label: "PRs", icon: Trophy },
     { key: "checkin", label: "Check-in", icon: CheckCircle2 }
   ];
 
@@ -406,6 +429,12 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                   <p className="mt-1 text-xl font-black">{products.length}</p>
                   <p className="text-xs text-[#aab0bd]">Productos disponibles</p>
                 </a>
+                <a href={tabHref("prs")} className="col-span-2 rounded-lg border border-[#272b35] bg-[#11141a] p-4 transition hover:border-[#f4c430]">
+                  <Trophy className="mb-3 text-[#f4c430]" size={20} />
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Records personales</p>
+                  <p className="mt-1 text-xl font-black">{records.length}</p>
+                  <p className="text-xs text-[#aab0bd]">RM, tiempos, reps y felicitaciones de coaches</p>
+                </a>
               </div>
             ) : null}
 
@@ -509,6 +538,70 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                 )}
               </div>
             </div>
+            ) : null}
+
+            {tab === "prs" ? (
+              <div className="mb-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Trophy className="text-[#f4c430]" size={20} />
+                  <h3 className="font-black">Records personales</h3>
+                </div>
+                <form action={submitPersonalRecord} className="mb-4 grid gap-3 rounded-md border border-[#272b35] bg-black/20 p-3">
+                  <input type="hidden" name="member_id" value={member.id} />
+                  <input type="hidden" name="email" value={email} />
+                  <label className="grid gap-2 text-sm font-bold">
+                    Movimiento
+                    <input name="movement" required placeholder="Back squat, Fran, Snatch..." />
+                  </label>
+                  <div className="grid grid-cols-[1fr_90px] gap-2">
+                    <label className="grid gap-2 text-sm font-bold">
+                      Marca
+                      <input name="value" required min="0.01" step="0.01" type="number" placeholder="120" />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      Unidad
+                      <select name="unit" defaultValue="kg">
+                        <option value="kg">kg</option>
+                        <option value="lb">lb</option>
+                        <option value="reps">reps</option>
+                        <option value="seg">seg</option>
+                        <option value="min">min</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="grid gap-2 text-sm font-bold">
+                    Fecha
+                    <input name="record_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold">
+                    Nota
+                    <textarea name="notes" placeholder="Como se sintio, peso corporal, version del WOD..." />
+                  </label>
+                  <button className="min-h-11 rounded-md bg-[#f4c430] font-black text-black" type="submit">
+                    Subir record
+                  </button>
+                </form>
+
+                <div className="grid gap-3">
+                  {records.length ? records.map((record) => (
+                    <article key={record.id} className="rounded-md border border-[#272b35] bg-black/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black">{record.movement}</p>
+                          <p className="text-sm text-[#aab0bd]">{record.record_date}</p>
+                        </div>
+                        <p className="font-black text-[#f4c430]">{record.value} {record.unit}</p>
+                      </div>
+                      {record.notes ? <p className="mt-2 text-sm text-[#aab0bd]">{record.notes}</p> : null}
+                      <p className="mt-2 text-xs font-bold text-[#8cf0bd]">{Number(record.congrats_count ?? 0)} felicitaciones de coaches</p>
+                    </article>
+                  )) : (
+                    <p className="rounded-md border border-[#272b35] bg-black/20 p-3 text-sm text-[#aab0bd]">
+                      Aun no has subido records. Empieza con tu sentadilla, peso muerto, clean, snatch o un benchmark.
+                    </p>
+                  )}
+                </div>
+              </div>
             ) : null}
 
             {tab === "reservas" ? (
