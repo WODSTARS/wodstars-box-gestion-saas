@@ -1,0 +1,80 @@
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAppSession } from "@/lib/auth/session";
+import { updateBoxStatus } from "@/lib/data/actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const statuses = ["trial", "active", "past_due", "suspended", "cancelled"];
+
+export default async function SuperadminPage() {
+  const session = await getAppSession();
+  if (!session.isSuperadmin) redirect("/dashboard");
+  const supabase = await createSupabaseServerClient();
+
+  const { data: boxes } = await supabase
+    .from("boxes")
+    .select("id,name,slug,plan,subscription_status,subscription_due_date,created_at");
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id,box_id,full_name,role,active,is_superadmin");
+
+  return (
+    <main className="min-h-screen p-6">
+      <div className="mb-6">
+        <p className="text-xs font-black uppercase tracking-[.18em] text-wod-gold">WodStars Control Center</p>
+        <h1 className="text-4xl font-black">Superadmin</h1>
+        <p className="mt-2 text-wod-muted">Control remoto de boxes, pagos, planes y bloqueos.</p>
+      </div>
+
+      <div className="grid gap-5">
+        {(boxes ?? []).map((box) => {
+          const users = (profiles ?? []).filter((profile) => profile.box_id === box.id);
+          const tone = box.subscription_status === "active" ? "green" : box.subscription_status === "past_due" ? "gold" : box.subscription_status === "trial" ? "blue" : "red";
+
+          return (
+            <Card key={box.id}>
+              <CardHeader>
+                <div>
+                  <h2 className="text-xl font-black">{box.name}</h2>
+                  <p className="text-sm text-wod-muted">{box.slug} · {users.length} usuarios</p>
+                </div>
+                <Badge tone={tone}>{box.subscription_status}</Badge>
+              </CardHeader>
+              <CardBody className="grid gap-4 lg:grid-cols-[1fr_360px]">
+                <div className="grid gap-2">
+                  {users.map((user) => (
+                    <div key={user.id} className="rounded-md border border-wod-line bg-black/20 p-3">
+                      <strong>{user.full_name}</strong>
+                      <p className="text-sm text-wod-muted">{user.role} · {user.active ? "activo" : "bloqueado"}</p>
+                    </div>
+                  ))}
+                </div>
+                <form action={updateBoxStatus} className="grid gap-3 rounded-md border border-wod-line bg-black/20 p-3">
+                  <input type="hidden" name="box_id" value={box.id} />
+                  <label className="grid gap-2 text-sm font-bold">
+                    Estado
+                    <select name="subscription_status" defaultValue={box.subscription_status}>
+                      {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold">
+                    Plan
+                    <input name="plan" defaultValue={box.plan} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold">
+                    Vencimiento
+                    <input name="subscription_due_date" type="date" defaultValue={box.subscription_due_date ?? ""} />
+                  </label>
+                  <Button variant="primary">Guardar cambios</Button>
+                </form>
+              </CardBody>
+            </Card>
+          );
+        })}
+      </div>
+    </main>
+  );
+}
