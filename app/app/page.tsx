@@ -227,7 +227,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
           </div>
         ) : (
           <>
-            <div className="mb-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+            <div id="wod" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-[#aab0bd]">Hola</p>
@@ -279,7 +279,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               )}
             </div>
 
-            <div id="qr-checkin" className="mb-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4 text-center">
+            <div id="qr-checkin" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4 text-center">
               <p className="text-xs font-black uppercase tracking-[.16em] text-[#f4c430]">Check-in rapido</p>
               <h3 className="mt-1 text-xl font-black">Escanea al llegar</h3>
               <div className="mx-auto my-4 grid w-fit place-items-center rounded-lg bg-white p-3">
@@ -288,7 +288,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               <p className="text-xs text-[#aab0bd]">Recepcion o coach escanea este codigo para registrar asistencia de hoy.</p>
             </div>
 
-            <div className="mb-3 flex items-center justify-between">
+            <div id="reservas" className="mb-3 flex scroll-mt-4 items-center justify-between">
               <h3 className="text-lg font-black">Proximas clases</h3>
               <span className="text-xs font-bold text-[#aab0bd]">{sessions.length} opciones</span>
             </div>
@@ -337,11 +337,20 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
           </>
         )}
 
-        <div className="mt-auto grid grid-cols-3 gap-2 border-t border-[#272b35] pt-4 text-center text-xs text-[#aab0bd]">
-          <span><CalendarDays className="mx-auto mb-1" size={16} />Reservas</span>
-          <span><Dumbbell className="mx-auto mb-1" size={16} />WOD</span>
-          <a href="#qr-checkin"><CheckCircle2 className="mx-auto mb-1" size={16} />Check-in</a>
-        </div>
+        <nav className="sticky bottom-0 -mx-5 mt-auto grid grid-cols-3 gap-2 border-t border-[#272b35] bg-[#050506]/95 px-5 py-3 text-center text-xs font-bold text-[#aab0bd] backdrop-blur">
+          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#reservas">
+            <CalendarDays className="mx-auto mb-1" size={16} />
+            Reservas
+          </a>
+          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#wod">
+            <Dumbbell className="mx-auto mb-1" size={16} />
+            WOD
+          </a>
+          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#qr-checkin">
+            <CheckCircle2 className="mx-auto mb-1" size={16} />
+            Check-in
+          </a>
+        </nav>
       </section>
     </main>
   );
