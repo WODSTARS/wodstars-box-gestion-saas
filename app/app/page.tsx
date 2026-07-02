@@ -83,6 +83,29 @@ function money(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value || 0);
 }
 
+function mexicoClock() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    minutes: Number(value("hour")) * 60 + Number(value("minute"))
+  };
+}
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
 function nextDates(days = 8) {
   const dates: Array<{ date: string; day: string }> = [];
   const now = new Date();
@@ -153,14 +176,6 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
     wod = wodData ?? null;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://wodstars-box-gestion-saas.vercel.app";
-  const checkinUrl = member
-    ? `${appUrl}/app/checkin?member=${encodeURIComponent(member.id)}&email=${encodeURIComponent(email)}`
-    : "";
-  const qrUrl = checkinUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(checkinUrl)}`
-    : "";
-
   const dates = nextDates();
   const sessions = dates
     .flatMap((date) =>
@@ -181,6 +196,19 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
         })
     )
     .slice(0, 18);
+  const clock = mexicoClock();
+  const checkinSession = sessions.find((item) => {
+    if (!item.isReserved || item.date !== clock.date) return false;
+    const classMinutes = timeToMinutes(item.time);
+    return clock.minutes >= classMinutes - 20 && clock.minutes <= classMinutes;
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://wodstars-box-gestion-saas.vercel.app";
+  const checkinUrl = member && checkinSession
+    ? `${appUrl}/app/checkin?member=${encodeURIComponent(member.id)}&email=${encodeURIComponent(email)}&class=${encodeURIComponent(checkinSession.id)}&date=${encodeURIComponent(checkinSession.date)}&time=${encodeURIComponent(checkinSession.time)}`
+    : "";
+  const qrUrl = checkinUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(checkinUrl)}`
+    : "";
 
   return (
     <main className="min-h-screen bg-[#050506] text-[#f8f3e6]">
@@ -227,7 +255,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
           </div>
         ) : (
           <>
-            <div id="wod" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+            <div className="mb-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-[#aab0bd]">Hola</p>
@@ -248,8 +276,10 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               <div className="rounded-lg border border-[#272b35] bg-[#11141a] p-4">
                 <QrCode className="mb-3 text-[#69b9ff]" size={20} />
                 <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Check-in</p>
-                <p className="mt-1 text-xl font-black">QR listo</p>
-                <a className="mt-2 block text-xs font-bold text-[#f4c430]" href="#qr-checkin">Mostrar codigo</a>
+                <p className="mt-1 text-xl font-black">{checkinSession ? "QR listo" : "Bloqueado"}</p>
+                <a className="mt-2 block text-xs font-bold text-[#f4c430]" href="#qr-checkin">
+                  {checkinSession ? "Mostrar codigo" : "Ver regla"}
+                </a>
               </div>
             </div>
 
@@ -259,7 +289,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               </div>
             ) : null}
 
-            <div className="mb-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+            <div id="wod" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Dumbbell className="text-[#f4c430]" size={20} />
                 <h3 className="font-black">Rutina</h3>
@@ -281,11 +311,25 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
 
             <div id="qr-checkin" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4 text-center">
               <p className="text-xs font-black uppercase tracking-[.16em] text-[#f4c430]">Check-in rapido</p>
-              <h3 className="mt-1 text-xl font-black">Escanea al llegar</h3>
-              <div className="mx-auto my-4 grid w-fit place-items-center rounded-lg bg-white p-3">
-                <img alt="QR de check-in" className="h-52 w-52" src={qrUrl} />
-              </div>
-              <p className="text-xs text-[#aab0bd]">Recepcion o coach escanea este codigo para registrar asistencia de hoy.</p>
+              {checkinSession ? (
+                <>
+                  <h3 className="mt-1 text-xl font-black">Escanea al llegar</h3>
+                  <p className="mt-1 text-sm text-[#aab0bd]">
+                    Disponible para {checkinSession.name} de {checkinSession.time.slice(0, 5)}. Se activa solo 20 minutos antes.
+                  </p>
+                  <div className="mx-auto my-4 grid w-fit place-items-center rounded-lg bg-white p-3">
+                    <img alt="QR de check-in" className="h-52 w-52" src={qrUrl} />
+                  </div>
+                  <p className="text-xs text-[#aab0bd]">Recepcion o coach escanea este codigo para registrar asistencia de la clase reservada.</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="mt-1 text-xl font-black">QR disponible 20 min antes</h3>
+                  <p className="mt-2 text-sm text-[#aab0bd]">
+                    Reserva una clase y vuelve dentro de los 20 minutos previos al inicio. Fuera de esa ventana el codigo permanece oculto.
+                  </p>
+                </>
+              )}
             </div>
 
             <div id="reservas" className="mb-3 flex scroll-mt-4 items-center justify-between">

@@ -11,18 +11,44 @@ function currentTime() {
   return new Date().toTimeString().slice(0, 8);
 }
 
+function mexicoClock() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    minutes: Number(value("hour")) * 60 + Number(value("minute"))
+  };
+}
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
 export default async function CheckinPage({ searchParams }: { searchParams?: Promise<Search> }) {
   const params = (await searchParams) ?? {};
   const memberId = single(params.member) ?? "";
   const email = single(params.email) ?? "";
-  const today = new Date().toISOString().slice(0, 10);
+  const classId = single(params.class) ?? "";
+  const date = single(params.date) ?? "";
+  const time = single(params.time) ?? "";
+  const clock = mexicoClock();
   const supabase = createSupabaseAdminClient();
 
   let title = "Check-in no valido";
   let detail = "No encontramos los datos necesarios para registrar asistencia.";
   let ok = false;
 
-  if (memberId) {
+  if (memberId && classId && date && time) {
     const { data: member } = await supabase
       .from("members")
       .select("id, box_id, name, status")
@@ -34,36 +60,30 @@ export default async function CheckinPage({ searchParams }: { searchParams?: Pro
     } else if (member.status !== "active") {
       title = "Membresia inactiva";
       detail = `${member.name} no tiene una membresia activa.`;
+    } else if (date !== clock.date || clock.minutes < timeToMinutes(time) - 20 || clock.minutes > timeToMinutes(time)) {
+      title = "QR fuera de horario";
+      detail = "El check-in solo se habilita durante los 20 minutos previos a la clase reservada.";
     } else {
       const { data: existing } = await supabase
         .from("attendance")
         .select("id")
         .eq("member_id", member.id)
-        .eq("date", today)
-        .is("class_id", null)
+        .eq("class_id", classId)
+        .eq("date", date)
         .maybeSingle();
 
-      if (existing) {
-        ok = true;
-        title = "Check-in ya registrado";
-        detail = `${member.name} ya tenia check-in general registrado hoy.`;
+      if (!existing) {
+        title = "Clase no reservada";
+        detail = "Primero reserva la clase desde la app para poder generar check-in.";
       } else {
-        const { error } = await supabase.from("attendance").insert({
-          box_id: member.box_id,
-          member_id: member.id,
-          class_id: null,
-          date: today,
-          time: currentTime()
-        });
+        const { error } = await supabase
+          .from("attendance")
+          .update({ time: currentTime() })
+          .eq("id", existing.id);
 
-        if (error) {
-          title = "No se pudo registrar";
-          detail = error.message;
-        } else {
-          ok = true;
-          title = "Check-in listo";
-          detail = `${member.name} quedo registrado para hoy.`;
-        }
+        ok = !error;
+        title = error ? "No se pudo registrar" : "Check-in listo";
+        detail = error ? error.message : `${member.name} quedo registrado para la clase reservada.`;
       }
     }
   }

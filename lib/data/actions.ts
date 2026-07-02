@@ -60,6 +60,26 @@ export async function deleteRecord(moduleKey: ModuleKey, id: string) {
   revalidatePath(`/${moduleKey}`);
 }
 
+export async function updateRecord(moduleKey: ModuleKey, id: string, formData: FormData) {
+  const session = await getAppSession();
+  assertBoxAccess(session);
+  if (!session.isSuperadmin && !canWrite(session.role)) throw new Error("No autorizado");
+
+  const config = modules[moduleKey];
+  const payload: Record<string, unknown> = {};
+  config.fields.forEach((field) => {
+    if (field.name === "box_id") return;
+    if (field.type === "checkbox") payload[field.name] = formData.get(field.name) === "on";
+    else payload[field.name] = parseValue(formData.get(field.name));
+  });
+
+  const supabase = await createSupabaseServerClient();
+  const query = supabase.from(config.table).update(payload).eq("id", id);
+  const { error } = session.isSuperadmin || !session.boxId ? await query : await query.eq("box_id", session.boxId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/${moduleKey}`);
+}
+
 export async function updateBoxStatus(formData: FormData) {
   const session = await getAppSession();
   if (!session.isSuperadmin) throw new Error("Solo superadmin");
