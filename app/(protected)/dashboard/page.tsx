@@ -37,7 +37,7 @@ function mailto(member: MemberRow) {
 }
 
 function isActiveMember(member: MemberRow) {
-  return member.status === "active" && dayDiff(member.end_date) >= 0;
+  return member.status !== "expired" && member.status !== "paused" && dayDiff(member.end_date) >= 0;
 }
 
 function isExpiredMember(member: MemberRow) {

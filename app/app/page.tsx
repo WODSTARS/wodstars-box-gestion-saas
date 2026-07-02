@@ -168,7 +168,7 @@ function isMembershipCurrent(member: Member) {
   const today = new Date().toISOString().slice(0, 10);
   if (member.status === "expired" || member.status === "paused") return false;
   if (member.end_date < today) return false;
-  return member.status === "active" || member.status === "expiring";
+  return true;
 }
 
 function memberStatusLabel(member: Member) {

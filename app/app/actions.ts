@@ -11,7 +11,7 @@ function isMembershipCurrent(member: { status: string; end_date?: string | null 
   const today = new Date().toISOString().slice(0, 10);
   if (member.status === "paused" || member.status === "expired") return false;
   if (member.end_date && member.end_date < today) return false;
-  return member.status === "active" || member.status === "expiring";
+  return true;
 }
 
 export async function reserveClass(formData: FormData) {
