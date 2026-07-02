@@ -171,6 +171,12 @@ function isMembershipCurrent(member: Member) {
   return member.status === "active" || member.status === "expiring";
 }
 
+function memberStatusLabel(member: Member) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (member.status === "expired" || member.end_date < today) return "Vencido";
+  return memberStatusCopy[member.status] ?? member.status;
+}
+
 export default async function MobileAppPage({ searchParams }: { searchParams?: Promise<Search> }) {
   const params = (await searchParams) ?? {};
   const email = single(params.email)?.trim() ?? "";
@@ -340,7 +346,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                   <h2 className="text-2xl font-black">{member.name}</h2>
                   <p className="mt-1 text-sm text-[#aab0bd]">{member.plan} · vence {member.end_date}</p>
                 </div>
-                <span className="rounded-full bg-[#183b2d] px-3 py-1 text-xs font-black text-[#8cf0bd]">{memberStatusCopy[member.status] ?? member.status}</span>
+                <span className="rounded-full bg-[#183b2d] px-3 py-1 text-xs font-black text-[#8cf0bd]">{memberStatusLabel(member)}</span>
               </div>
             </div>
 

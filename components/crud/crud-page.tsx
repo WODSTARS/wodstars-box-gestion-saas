@@ -71,6 +71,21 @@ function headerLabel(column: string) {
   return columnLabels[column] ?? column.replaceAll("_", " ");
 }
 
+function effectiveMemberStatus(row: Row) {
+  const status = String(row.status ?? "");
+  const endDate = String(row.end_date ?? "");
+  const days = daysUntil(endDate);
+  if (status === "expired" || days < 0) return "Vencido";
+  if (status === "paused") return "Pausado";
+  if (status === "expiring" || days <= 7) return "Proximo a vencer";
+  return displayLabel(status);
+}
+
+function cellValue(config: ModuleConfig, row: Row, column: string) {
+  if (config.key === "members" && column === "status") return effectiveMemberStatus(row);
+  return displayLabel(row[column]);
+}
+
 function fieldControl(field: ModuleConfig["fields"][number], row?: Row) {
   const value = row?.[field.name];
 
@@ -207,7 +222,7 @@ export async function CrudPage({ config }: { config: ModuleConfig }) {
             <tbody>
               {rows.map((row) => (
                 <tr key={String(row.id)} className="border-b border-wod-line/60">
-                  {config.columns.map((column) => <td key={column} className="p-3">{displayLabel(row[column])}</td>)}
+                  {config.columns.map((column) => <td key={column} className="p-3">{cellValue(config, row, column)}</td>)}
                   {writable ? (
                     <td className="p-3 align-top">
                       <details className="mb-2">

@@ -36,6 +36,14 @@ function mailto(member: MemberRow) {
   return `mailto:${member.email ?? ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+function isActiveMember(member: MemberRow) {
+  return member.status === "active" && dayDiff(member.end_date) >= 0;
+}
+
+function isExpiredMember(member: MemberRow) {
+  return member.status === "expired" || dayDiff(member.end_date) < 0;
+}
+
 export default async function DashboardPage() {
   const session = await getAppSession();
   const supabase = await createSupabaseServerClient();
@@ -71,9 +79,9 @@ export default async function DashboardPage() {
   const expenseRows = expenses.data ?? [];
   const attendanceRows = attendance.data ?? [];
   const classRows = classes.data ?? [];
-  const active = memberRows.filter((m) => m.status === "active").length;
-  const expiring = memberRows.filter((m) => dayDiff(m.end_date) >= 0 && dayDiff(m.end_date) <= 7);
-  const expired = memberRows.filter((m) => dayDiff(m.end_date) < 0);
+  const active = memberRows.filter(isActiveMember).length;
+  const expiring = memberRows.filter((m) => !isExpiredMember(m) && dayDiff(m.end_date) >= 0 && dayDiff(m.end_date) <= 7);
+  const expired = memberRows.filter(isExpiredMember);
   const monthIncome = paymentRows.filter((p) => p.date?.startsWith(month)).reduce((sum, p) => sum + Number(p.amount), 0);
   const monthSales = saleRows.filter((s) => s.date?.startsWith(month)).reduce((sum, s) => sum + Number(s.total), 0);
   const monthExpenses = expenseRows.filter((e) => e.date?.startsWith(month)).reduce((sum, e) => sum + Number(e.amount), 0);
