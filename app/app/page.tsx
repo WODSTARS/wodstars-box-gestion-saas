@@ -67,11 +67,13 @@ type CreditRequest = {
   status: string;
 };
 
+type AppTab = "inicio" | "reservas" | "wod" | "tienda" | "checkin";
+
 const statusCopy: Record<string, string> = {
   reserved: "Reserva confirmada. Te esperamos en clase.",
   already: "Ya tenias reservada esta clase.",
   full: "La clase ya no tiene lugares disponibles.",
-  inactive: "Tu membresia no esta activa. Contacta a recepcion.",
+  inactive: "Tu membresia esta vencida o pausada. Realiza tu pago en recepcion para volver a reservar.",
   invalid: "No pudimos validar esta clase.",
   missing: "Faltan datos para reservar.",
   error: "No se pudo guardar la reserva. Intenta de nuevo."
@@ -158,10 +160,23 @@ function nextDates(days = 8) {
   return dates;
 }
 
+function isAppTab(value: string): value is AppTab {
+  return ["inicio", "reservas", "wod", "tienda", "checkin"].includes(value);
+}
+
+function isMembershipCurrent(member: Member) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (member.status === "expired" || member.status === "paused") return false;
+  if (member.end_date < today) return false;
+  return member.status === "active" || member.status === "expiring";
+}
+
 export default async function MobileAppPage({ searchParams }: { searchParams?: Promise<Search> }) {
   const params = (await searchParams) ?? {};
   const email = single(params.email)?.trim() ?? "";
   const status = single(params.status) ?? "";
+  const requestedTab = single(params.tab) ?? "inicio";
+  const tab: AppTab = isAppTab(requestedTab) ? requestedTab : "inicio";
   const supabase = createSupabaseAdminClient();
 
   const { data: box } = await supabase
@@ -263,6 +278,15 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
   const qrUrl = checkinUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(checkinUrl)}`
     : "";
+  const canReserve = member ? isMembershipCurrent(member) : false;
+  const tabHref = (target: AppTab) => `/app?email=${encodeURIComponent(email)}&tab=${target}`;
+  const tabs: Array<{ key: AppTab; label: string; icon: typeof CalendarDays }> = [
+    { key: "inicio", label: "Inicio", icon: CreditCard },
+    { key: "reservas", label: "Reservas", icon: CalendarDays },
+    { key: "wod", label: "WOD", icon: Dumbbell },
+    { key: "tienda", label: "Tienda", icon: ShoppingBag },
+    { key: "checkin", label: "Check-in", icon: CheckCircle2 }
+  ];
 
   return (
     <main className="min-h-screen bg-[#050506] text-[#f8f3e6]">
@@ -320,29 +344,66 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-[#272b35] bg-[#11141a] p-4">
-                <CreditCard className="mb-3 text-[#f4c430]" size={20} />
-                <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Proximo pago</p>
-                <p className="mt-1 text-xl font-black">{money(member.monthly_amount)}</p>
-                <p className="text-xs text-[#aab0bd]">Vence {member.end_date}</p>
-              </div>
-              <div className="rounded-lg border border-[#272b35] bg-[#11141a] p-4">
-                <QrCode className="mb-3 text-[#69b9ff]" size={20} />
-                <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Check-in</p>
-                <p className="mt-1 text-xl font-black">{checkinSession ? "QR listo" : "Bloqueado"}</p>
-                <a className="mt-2 block text-xs font-bold text-[#f4c430]" href="#qr-checkin">
-                  {checkinSession ? "Mostrar codigo" : "Ver regla"}
-                </a>
-              </div>
-            </div>
-
             {status ? (
               <div className="mb-4 rounded-lg border border-[#f4c430]/40 bg-[#f4c430]/10 p-3 text-sm font-bold text-[#ffe58a]">
                 {statusCopy[status] ?? statusCopy.error}
               </div>
             ) : null}
 
+            {!canReserve ? (
+              <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-4">
+                <p className="font-black text-red-100">Membresia vencida o pausada</p>
+                <p className="mt-1 text-sm text-[#ffd6d6]">
+                  Para reservar clases debes realizar tu pago o pedir a recepcion que reactive tu membresia.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mb-4 grid grid-cols-5 gap-2 rounded-lg border border-[#272b35] bg-[#11141a] p-2">
+              {tabs.map((item) => (
+                <a
+                  key={item.key}
+                  className={`grid min-h-14 place-items-center rounded-md px-1 text-center text-[11px] font-black transition ${tab === item.key ? "bg-[#f4c430] text-black" : "text-[#aab0bd] hover:bg-[#1a1e27] hover:text-[#f4c430]"}`}
+                  href={tabHref(item.key)}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </a>
+              ))}
+            </div>
+
+            {tab === "inicio" ? (
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+                  <CreditCard className="mb-3 text-[#f4c430]" size={20} />
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Proximo pago</p>
+                  <p className="mt-1 text-xl font-black">{money(member.monthly_amount)}</p>
+                  <p className="text-xs text-[#aab0bd]">Vence {member.end_date}</p>
+                </div>
+                <div className="rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+                  <QrCode className="mb-3 text-[#69b9ff]" size={20} />
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Check-in</p>
+                  <p className="mt-1 text-xl font-black">{checkinSession ? "QR listo" : "Bloqueado"}</p>
+                  <a className="mt-2 block text-xs font-bold text-[#f4c430]" href={tabHref("checkin")}>
+                    {checkinSession ? "Mostrar codigo" : "Ver regla"}
+                  </a>
+                </div>
+                <a href={tabHref("reservas")} className="rounded-lg border border-[#272b35] bg-[#11141a] p-4 transition hover:border-[#f4c430]">
+                  <CalendarDays className="mb-3 text-[#8cf0bd]" size={20} />
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Reservas</p>
+                  <p className="mt-1 text-xl font-black">{sessions.filter((item) => item.isReserved).length}</p>
+                  <p className="text-xs text-[#aab0bd]">Clases apartadas</p>
+                </a>
+                <a href={tabHref("tienda")} className="rounded-lg border border-[#272b35] bg-[#11141a] p-4 transition hover:border-[#f4c430]">
+                  <ShoppingBag className="mb-3 text-[#f4c430]" size={20} />
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-[#aab0bd]">Tienda</p>
+                  <p className="mt-1 text-xl font-black">{products.length}</p>
+                  <p className="text-xs text-[#aab0bd]">Productos disponibles</p>
+                </a>
+              </div>
+            ) : null}
+
+            {tab === "wod" ? (
             <div id="wod" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Dumbbell className="text-[#f4c430]" size={20} />
@@ -362,7 +423,9 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                 <p className="text-sm text-[#aab0bd]">Aun no hay WOD publicado para los proximos dias.</p>
               )}
             </div>
+            ) : null}
 
+            {tab === "checkin" ? (
             <div id="qr-checkin" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4 text-center">
               <p className="text-xs font-black uppercase tracking-[.16em] text-[#f4c430]">Check-in rapido</p>
               {checkinSession ? (
@@ -385,7 +448,9 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                 </>
               )}
             </div>
+            ) : null}
 
+            {tab === "tienda" ? (
             <div id="tienda" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -438,7 +503,10 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                 )}
               </div>
             </div>
+            ) : null}
 
+            {tab === "reservas" ? (
+            <>
             <div id="reservas" className="mb-3 flex scroll-mt-4 items-center justify-between">
               <h3 className="text-lg font-black">Proximas clases</h3>
               <span className="text-xs font-bold text-[#aab0bd]">{sessions.length} opciones</span>
@@ -470,10 +538,10 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                     <input type="hidden" name="email" value={email} />
                     <button
                       className="min-h-11 w-full rounded-md bg-[#f4c430] font-black text-black disabled:cursor-not-allowed disabled:bg-[#303541] disabled:text-[#aab0bd]"
-                      disabled={item.isReserved || item.spotsLeft <= 0}
+                      disabled={!canReserve || item.isReserved || item.spotsLeft <= 0}
                       type="submit"
                     >
-                      {item.isReserved ? "Reservada" : item.spotsLeft <= 0 ? "Clase llena" : "Reservar lugar"}
+                      {!canReserve ? "Paga tu membresia para reservar" : item.isReserved ? "Reservada" : item.spotsLeft <= 0 ? "Clase llena" : "Reservar lugar"}
                     </button>
                   </form>
                 </article>
@@ -485,19 +553,21 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                 </div>
               )}
             </div>
+            </>
+            ) : null}
           </>
         )}
 
         <nav className="sticky bottom-0 -mx-5 mt-auto grid grid-cols-3 gap-2 border-t border-[#272b35] bg-[#050506]/95 px-5 py-3 text-center text-xs font-bold text-[#aab0bd] backdrop-blur">
-          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#reservas">
+          <a className={`rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430] ${tab === "reservas" ? "text-[#f4c430]" : ""}`} href={tabHref("reservas")}>
             <CalendarDays className="mx-auto mb-1" size={16} />
             Reservas
           </a>
-          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#tienda">
+          <a className={`rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430] ${tab === "tienda" ? "text-[#f4c430]" : ""}`} href={tabHref("tienda")}>
             <ShoppingBag className="mx-auto mb-1" size={16} />
             Tienda
           </a>
-          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#qr-checkin">
+          <a className={`rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430] ${tab === "checkin" ? "text-[#f4c430]" : ""}`} href={tabHref("checkin")}>
             <CheckCircle2 className="mx-auto mb-1" size={16} />
             Check-in
           </a>

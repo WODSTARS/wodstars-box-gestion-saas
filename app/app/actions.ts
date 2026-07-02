@@ -7,6 +7,13 @@ function backToApp(email: string, status: string): never {
   redirect(`/app?email=${encodeURIComponent(email)}&status=${encodeURIComponent(status)}`);
 }
 
+function isMembershipCurrent(member: { status: string; end_date?: string | null }) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (member.status === "paused" || member.status === "expired") return false;
+  if (member.end_date && member.end_date < today) return false;
+  return member.status === "active" || member.status === "expiring";
+}
+
 export async function reserveClass(formData: FormData) {
   const memberId = String(formData.get("member_id") || "");
   const classId = String(formData.get("class_id") || "");
@@ -22,11 +29,11 @@ export async function reserveClass(formData: FormData) {
 
   const { data: member } = await supabase
     .from("members")
-    .select("id, box_id, status")
+    .select("id, box_id, status, end_date")
     .eq("id", memberId)
     .single();
 
-  if (!member || member.status !== "active") {
+  if (!member || !isMembershipCurrent(member)) {
     backToApp(email, "inactive");
   }
 
@@ -90,11 +97,11 @@ export async function requestCredit(formData: FormData) {
   const supabase = createSupabaseAdminClient();
   const { data: member } = await supabase
     .from("members")
-    .select("id, box_id, status")
+    .select("id, box_id, status, end_date")
     .eq("id", memberId)
     .single();
 
-  if (!member || member.status !== "active") {
+  if (!member || !isMembershipCurrent(member)) {
     backToApp(email, "inactive");
   }
 
