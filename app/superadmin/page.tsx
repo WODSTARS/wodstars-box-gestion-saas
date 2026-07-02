@@ -1,12 +1,26 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppSession } from "@/lib/auth/session";
-import { updateBoxStatus } from "@/lib/data/actions";
+import { createBox, createPlatformUser, updateBoxStatus } from "@/lib/data/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const statuses = ["trial", "active", "past_due", "suspended", "cancelled"];
+const roles = [
+  { value: "owner", label: "Dueño" },
+  { value: "admin", label: "Administrador" },
+  { value: "reception", label: "Recepcion" },
+  { value: "coach", label: "Coach" }
+];
+
+const statusLabels: Record<string, string> = {
+  active: "Activo",
+  cancelled: "Cancelado",
+  past_due: "Pago pendiente",
+  suspended: "Suspendido",
+  trial: "Prueba"
+};
 
 export default async function SuperadminPage() {
   const session = await getAppSession();
@@ -30,6 +44,43 @@ export default async function SuperadminPage() {
       </div>
 
       <div className="grid gap-5">
+        <Card>
+          <CardBody>
+            <details>
+              <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-wod-gold bg-wod-gold px-4 text-sm font-black text-black transition hover:bg-[#ffdc5a]">
+                Crear CrossFit independiente
+              </summary>
+              <form action={createBox} className="mt-4 grid gap-3 border-t border-wod-line pt-4 md:grid-cols-2">
+                <label className="grid gap-2 text-sm font-bold">
+                  Nombre del box
+                  <input name="name" required placeholder="Iron Temple" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  Slug
+                  <input name="slug" placeholder="iron-temple" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  Email
+                  <input name="email" type="email" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  Telefono
+                  <input name="phone" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  Plan
+                  <input name="plan" defaultValue="starter" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  Vencimiento
+                  <input name="subscription_due_date" type="date" />
+                </label>
+                <Button variant="primary" className="md:col-span-2">Crear box</Button>
+              </form>
+            </details>
+          </CardBody>
+        </Card>
+
         {(boxes ?? []).map((box) => {
           const users = (profiles ?? []).filter((profile) => profile.box_id === box.id);
           const tone = box.subscription_status === "active" ? "green" : box.subscription_status === "past_due" ? "gold" : box.subscription_status === "trial" ? "blue" : "red";
@@ -41,10 +92,37 @@ export default async function SuperadminPage() {
                   <h2 className="text-xl font-black">{box.name}</h2>
                   <p className="text-sm text-wod-muted">{box.slug} · {users.length} usuarios</p>
                 </div>
-                <Badge tone={tone}>{box.subscription_status}</Badge>
+                <Badge tone={tone}>{statusLabels[box.subscription_status] ?? box.subscription_status}</Badge>
               </CardHeader>
               <CardBody className="grid gap-4 lg:grid-cols-[1fr_360px]">
                 <div className="grid gap-2">
+                  <details className="rounded-md border border-wod-line bg-black/20 p-3">
+                    <summary className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-wod-gold bg-wod-gold px-3 text-sm font-black text-black transition hover:bg-[#ffdc5a]">
+                      Crear usuario para este box
+                    </summary>
+                    <form action={createPlatformUser} className="mt-3 grid gap-3 border-t border-wod-line pt-3 md:grid-cols-2">
+                      <input type="hidden" name="box_id" value={box.id} />
+                      <label className="grid gap-2 text-sm font-bold">
+                        Nombre
+                        <input name="full_name" required placeholder="Coach Valeria" />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        Email
+                        <input name="email" type="email" required placeholder="coach@box.com" />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        Contraseña temporal
+                        <input name="password" type="password" required minLength={6} />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        Rol
+                        <select name="role" defaultValue="owner">
+                          {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                        </select>
+                      </label>
+                      <Button variant="primary" className="md:col-span-2">Crear usuario</Button>
+                    </form>
+                  </details>
                   {users.map((user) => (
                     <div key={user.id} className="rounded-md border border-wod-line bg-black/20 p-3">
                       <strong>{user.full_name}</strong>

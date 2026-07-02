@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 const nav = [
   { href: "/dashboard", label: "Panel", icon: Home },
   { href: "/members", label: "Socios", icon: Users },
+  { href: "/users", label: "Usuarios", icon: Shield },
   { href: "/attendance", label: "Asistencia", icon: Activity },
   { href: "/payments", label: "Pagos", icon: WalletCards },
   { href: "/sales", label: "Ventas", icon: ShoppingCart },

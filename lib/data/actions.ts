@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppSession, assertBoxAccess, canWrite } from "@/lib/auth/session";
 import { modules, type ModuleKey } from "@/lib/data/tables";
@@ -33,6 +34,16 @@ async function decrementInventoryForProduct(supabase: SupabaseServer, boxId: str
 
   const nextQuantity = Math.max(0, Number(item.quantity ?? 0) - amount);
   await supabase.from("inventory").update({ quantity: nextQuantity }).eq("id", item.id).eq("box_id", boxId);
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }
 
 export async function signIn(formData: FormData) {
@@ -119,6 +130,103 @@ export async function updateBoxStatus(formData: FormData) {
     .update({ subscription_status, plan, subscription_due_date: subscription_due_date || null })
     .eq("id", boxId);
   if (error) throw new Error(error.message);
+  revalidatePath("/superadmin");
+}
+
+export async function createBox(formData: FormData) {
+  const session = await getAppSession();
+  if (!session.isSuperadmin) throw new Error("Solo superadmin");
+
+  const name = String(formData.get("name") || "").trim();
+  const slug = slugify(String(formData.get("slug") || name));
+  const email = String(formData.get("email") || "").trim() || null;
+  const phone = String(formData.get("phone") || "").trim() || null;
+  const plan = String(formData.get("plan") || "starter").trim() || "starter";
+  const subscription_due_date = String(formData.get("subscription_due_date") || "") || null;
+
+  if (!name || !slug) throw new Error("Falta nombre o slug del box");
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("boxes").insert({
+    name,
+    slug,
+    email,
+    phone,
+    plan,
+    subscription_status: "trial",
+    subscription_due_date
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/superadmin");
+  revalidatePath("/users");
+}
+
+export async function createPlatformUser(formData: FormData) {
+  const session = await getAppSession();
+  assertBoxAccess(session);
+  if (!session.isSuperadmin && !canWrite(session.role)) throw new Error("No autorizado");
+
+  const fullName = String(formData.get("full_name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
+  const role = String(formData.get("role") || "coach");
+  const requestedBoxId = String(formData.get("box_id") || "");
+  const boxId = session.isSuperadmin ? requestedBoxId : session.boxId;
+
+  if (!boxId) throw new Error("Selecciona un box");
+  if (!fullName || !email || password.length < 6) throw new Error("Nombre, email y password de minimo 6 caracteres son obligatorios");
+  if (!["owner", "admin", "reception", "coach"].includes(role)) throw new Error("Rol invalido");
+
+  const admin = createSupabaseAdminClient();
+  const { data, error: userError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName }
+  });
+  if (userError) throw new Error(userError.message);
+  if (!data.user) throw new Error("No se pudo crear el usuario");
+
+  const { error } = await admin.from("profiles").upsert({
+    id: data.user.id,
+    box_id: boxId,
+    full_name: fullName,
+    role,
+    active: true,
+    is_superadmin: false
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/users");
+  revalidatePath("/superadmin");
+}
+
+export async function updatePlatformUser(id: string, formData: FormData) {
+  const session = await getAppSession();
+  assertBoxAccess(session);
+  if (!session.isSuperadmin && !canWrite(session.role)) throw new Error("No autorizado");
+
+  const role = String(formData.get("role") || "coach");
+  const fullName = String(formData.get("full_name") || "").trim();
+  const active = formData.get("active") === "on";
+  const requestedBoxId = String(formData.get("box_id") || "");
+  const boxId = session.isSuperadmin ? requestedBoxId : session.boxId;
+
+  if (!boxId) throw new Error("Selecciona un box");
+  if (!fullName) throw new Error("Falta nombre");
+  if (!["owner", "admin", "reception", "coach"].includes(role)) throw new Error("Rol invalido");
+
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("profiles")
+    .update({ full_name: fullName, role, active, box_id: boxId })
+    .eq("id", id);
+
+  if (!session.isSuperadmin) query = query.eq("box_id", session.boxId);
+  const { error } = await query;
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/users");
   revalidatePath("/superadmin");
 }
 
