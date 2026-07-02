@@ -10,7 +10,21 @@ function currency(value: number) {
 export default async function DashboardPage() {
   const session = await getAppSession();
   const supabase = await createSupabaseServerClient();
-  const boxId = session.boxId!;
+  const boxId = session.boxId;
+
+  if (!boxId) {
+    return (
+      <Card>
+        <CardHeader><h3 className="font-black">Sin box asignado</h3></CardHeader>
+        <CardBody>
+          <p className="text-wod-muted">
+            Tu usuario no tiene un box asignado. Entra a Superadmin para vincularlo o crear uno.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
 
@@ -39,7 +53,7 @@ export default async function DashboardPage() {
   }).length;
   const income = (payments.data ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0);
   const todayName = new Intl.DateTimeFormat("es-MX", { weekday: "long" }).format(new Date());
-  const todayClasses = (classes.data ?? []).filter((item) => item.day.toLowerCase() === todayName.toLowerCase());
+  const todayClasses = (classes.data ?? []).filter((item) => String(item.day ?? "").toLowerCase() === todayName.toLowerCase());
 
   return (
     <div className="grid gap-5">
