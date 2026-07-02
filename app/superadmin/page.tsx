@@ -1,14 +1,22 @@
 import { redirect } from "next/navigation";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppSession } from "@/lib/auth/session";
-import { createBox, createPlatformUser, updateBoxStatus } from "@/lib/data/actions";
+import { createBox, createPlatformUser, deletePlatformUser, updateBoxStatus, updatePlatformUser } from "@/lib/data/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const statuses = ["trial", "active", "past_due", "suspended", "cancelled"];
+const statuses = [
+  { value: "trial", label: "Prueba" },
+  { value: "active", label: "Activo" },
+  { value: "past_due", label: "Pago pendiente" },
+  { value: "suspended", label: "Suspendido" },
+  { value: "cancelled", label: "Cancelado" }
+];
+
 const roles = [
-  { value: "owner", label: "Dueño" },
+  { value: "owner", label: "Dueno" },
   { value: "admin", label: "Administrador" },
   { value: "reception", label: "Recepcion" },
   { value: "coach", label: "Coach" }
@@ -25,15 +33,16 @@ const statusLabels: Record<string, string> = {
 export default async function SuperadminPage() {
   const session = await getAppSession();
   if (!session.isSuperadmin) redirect("/dashboard");
+
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
 
-  const { data: boxes } = await supabase
-    .from("boxes")
-    .select("id,name,slug,plan,subscription_status,subscription_due_date,created_at");
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id,box_id,full_name,role,active,is_superadmin");
+  const [{ data: boxes }, { data: profiles }, authUsers] = await Promise.all([
+    supabase.from("boxes").select("id,name,slug,plan,subscription_status,subscription_due_date,created_at"),
+    supabase.from("profiles").select("id,box_id,full_name,role,active,is_superadmin"),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  ]);
+  const emailById = new Map(authUsers.data.users.map((user) => [user.id, user.email ?? ""]));
 
   return (
     <main className="min-h-screen p-6">
@@ -123,19 +132,57 @@ export default async function SuperadminPage() {
                       <Button variant="primary" className="md:col-span-2">Crear usuario</Button>
                     </form>
                   </details>
+
                   {users.map((user) => (
                     <div key={user.id} className="rounded-md border border-wod-line bg-black/20 p-3">
                       <strong>{user.full_name}</strong>
-                      <p className="text-sm text-wod-muted">{user.role} · {user.active ? "activo" : "bloqueado"}</p>
+                      <p className="text-sm text-wod-muted">{user.role} · {user.active ? "activo" : "bloqueado"} · {emailById.get(user.id) ?? ""}</p>
+                      <details className="mt-3">
+                        <summary className="inline-flex min-h-9 cursor-pointer items-center rounded-md border border-wod-line bg-wod-panel2 px-3 text-xs font-black transition hover:border-wod-gold hover:text-wod-gold">
+                          Editar usuario
+                        </summary>
+                        <form action={updatePlatformUser.bind(null, user.id)} className="mt-3 grid gap-3 rounded-md border border-wod-line bg-black/30 p-3 md:grid-cols-2">
+                          <input type="hidden" name="box_id" value={box.id} />
+                          <label className="grid gap-2 text-sm font-bold">
+                            Nombre
+                            <input name="full_name" required defaultValue={user.full_name} />
+                          </label>
+                          <label className="grid gap-2 text-sm font-bold">
+                            Email
+                            <input name="email" type="email" defaultValue={emailById.get(user.id) ?? ""} />
+                          </label>
+                          <label className="grid gap-2 text-sm font-bold">
+                            Nueva contraseña
+                            <input name="password" type="password" minLength={6} placeholder="Dejar vacio para no cambiar" />
+                          </label>
+                          <label className="grid gap-2 text-sm font-bold">
+                            Rol
+                            <select name="role" defaultValue={user.role}>
+                              {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                            </select>
+                          </label>
+                          <label className="flex items-center gap-2 text-sm font-bold">
+                            <input name="active" type="checkbox" className="h-5 w-5" defaultChecked={user.active} />
+                            Usuario activo
+                          </label>
+                          <Button variant="primary" className="md:col-span-2">Guardar usuario</Button>
+                        </form>
+                        {user.id !== session.userId ? (
+                          <form action={deletePlatformUser.bind(null, user.id)} className="mt-3">
+                            <Button variant="danger">Eliminar usuario</Button>
+                          </form>
+                        ) : null}
+                      </details>
                     </div>
                   ))}
                 </div>
+
                 <form action={updateBoxStatus} className="grid gap-3 rounded-md border border-wod-line bg-black/20 p-3">
                   <input type="hidden" name="box_id" value={box.id} />
                   <label className="grid gap-2 text-sm font-bold">
                     Estado
                     <select name="subscription_status" defaultValue={box.subscription_status}>
-                      {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                      {statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                     </select>
                   </label>
                   <label className="grid gap-2 text-sm font-bold">

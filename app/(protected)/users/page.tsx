@@ -1,4 +1,4 @@
-import { createPlatformUser, updatePlatformUser } from "@/lib/data/actions";
+import { createPlatformUser, deletePlatformUser, updatePlatformUser } from "@/lib/data/actions";
 import { assertBoxAccess, canWrite, getAppSession } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,14 @@ export default async function UsersPage() {
                       <input name="full_name" required defaultValue={profile.full_name} />
                     </label>
                     <label className="grid gap-2 text-sm font-bold">
+                      Email
+                      <input name="email" type="email" defaultValue={emailById.get(profile.id) ?? ""} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      Nueva contraseña
+                      <input name="password" type="password" minLength={6} placeholder="Dejar vacio para no cambiar" />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
                       Rol
                       <select name="role" defaultValue={profile.role}>
                         {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
@@ -152,6 +160,11 @@ export default async function UsersPage() {
                     </label>
                     <Button variant="primary" className="md:col-span-2">Guardar usuario</Button>
                   </form>
+                  {profile.id !== session.userId ? (
+                    <form action={deletePlatformUser.bind(null, profile.id)} className="mt-3">
+                      <Button variant="danger">Eliminar usuario</Button>
+                    </form>
+                  ) : null}
                 </details>
 
                 <p className="mt-3 text-xs font-bold uppercase tracking-[.14em] text-wod-gold">{roleLabel(profile.role)}</p>

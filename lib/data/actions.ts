@@ -242,6 +242,8 @@ export async function updatePlatformUser(id: string, formData: FormData) {
 
   const role = String(formData.get("role") || "coach");
   const fullName = String(formData.get("full_name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
   const active = formData.get("active") === "on";
   const requestedBoxId = String(formData.get("box_id") || "");
   const boxId = session.isSuperadmin ? requestedBoxId : session.boxId;
@@ -249,6 +251,19 @@ export async function updatePlatformUser(id: string, formData: FormData) {
   if (!boxId) throw new Error("Selecciona un box");
   if (!fullName) throw new Error("Falta nombre");
   if (!["owner", "admin", "reception", "coach"].includes(role)) throw new Error("Rol invalido");
+
+  const admin = createSupabaseAdminClient();
+  const updates: { email?: string; password?: string; user_metadata?: { full_name: string } } = {
+    user_metadata: { full_name: fullName }
+  };
+  if (email) updates.email = email;
+  if (password) {
+    if (password.length < 6) throw new Error("La nueva contraseña debe tener minimo 6 caracteres");
+    updates.password = password;
+  }
+
+  const { error: authError } = await admin.auth.admin.updateUserById(id, updates);
+  if (authError) throw new Error(authError.message);
 
   const supabase = await createSupabaseServerClient();
   let query = supabase
@@ -258,6 +273,32 @@ export async function updatePlatformUser(id: string, formData: FormData) {
 
   if (!session.isSuperadmin) query = query.eq("box_id", session.boxId);
   const { error } = await query;
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/users");
+  revalidatePath("/superadmin");
+}
+
+export async function deletePlatformUser(id: string) {
+  const session = await getAppSession();
+  assertBoxAccess(session);
+  if (!session.isSuperadmin && !canWrite(session.role)) throw new Error("No autorizado");
+  if (id === session.userId) throw new Error("No puedes eliminar tu propio usuario");
+
+  const supabase = await createSupabaseServerClient();
+  if (!session.isSuperadmin) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id, box_id, is_superadmin")
+      .eq("id", id)
+      .single();
+    if (error || !profile || profile.box_id !== session.boxId || profile.is_superadmin) {
+      throw new Error("No puedes eliminar este usuario");
+    }
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(id);
   if (error) throw new Error(error.message);
 
   revalidatePath("/users");
