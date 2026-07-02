@@ -10,6 +10,7 @@ const nav = [
   { href: "/attendance", label: "Asistencia", icon: Activity },
   { href: "/payments", label: "Pagos", icon: WalletCards },
   { href: "/sales", label: "Ventas", icon: ShoppingCart },
+  { href: "/credit", label: "Fiados", icon: ReceiptText },
   { href: "/expenses", label: "Gastos", icon: ReceiptText },
   { href: "/classes", label: "Clases", icon: CalendarDays },
   { href: "/wods", label: "WODs", icon: Dumbbell },

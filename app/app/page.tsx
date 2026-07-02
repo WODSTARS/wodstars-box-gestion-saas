@@ -1,6 +1,6 @@
-import { CalendarDays, CheckCircle2, Clock3, CreditCard, Dumbbell, MapPin, QrCode, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, CreditCard, Dumbbell, MapPin, QrCode, ShieldCheck, ShoppingBag, Sparkles, Users } from "lucide-react";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { reserveClass } from "./actions";
+import { requestCredit, reserveClass } from "./actions";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -50,6 +50,23 @@ type WodRow = {
   scaling: string | null;
 };
 
+type InventoryProduct = {
+  id: string;
+  equipment: string;
+  category: string | null;
+  quantity: number | null;
+  estimated_cost: number | null;
+  status: string | null;
+};
+
+type CreditRequest = {
+  id: string;
+  product: string;
+  quantity: number;
+  total: number;
+  status: string;
+};
+
 const statusCopy: Record<string, string> = {
   reserved: "Reserva confirmada. Te esperamos en clase.",
   already: "Ya tenias reservada esta clase.",
@@ -58,6 +75,25 @@ const statusCopy: Record<string, string> = {
   invalid: "No pudimos validar esta clase.",
   missing: "Faltan datos para reservar.",
   error: "No se pudo guardar la reserva. Intenta de nuevo."
+  ,
+  credit_requested: "Solicitud de fiado enviada. Un coach o recepcion debe aprobarla.",
+  credit_missing: "Faltan datos para pedir el producto.",
+  credit_invalid: "No pudimos validar ese producto.",
+  credit_stock: "No hay suficiente inventario disponible.",
+  credit_error: "No se pudo guardar el fiado. Revisa que la migracion 005 este aplicada en Supabase."
+};
+
+const memberStatusCopy: Record<string, string> = {
+  active: "Activo",
+  expired: "Vencido",
+  expiring: "Proximo a vencer",
+  paused: "Pausado"
+};
+
+const creditStatusCopy: Record<string, string> = {
+  approved: "Aprobado",
+  pending: "Pendiente",
+  rejected: "Rechazado"
 };
 
 const weekdays = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
@@ -138,6 +174,8 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
   let classes: ClassRow[] = [];
   let attendance: AttendanceRow[] = [];
   let wod: WodRow | null = null;
+  let products: InventoryProduct[] = [];
+  let creditRequests: CreditRequest[] = [];
 
   if (box && email) {
     const { data } = await supabase
@@ -150,7 +188,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
   }
 
   if (box && member) {
-    const [{ data: classData }, { data: attendanceData }, { data: wodData }] = await Promise.all([
+    const [{ data: classData }, { data: attendanceData }, { data: wodData }, { data: productData }, { data: creditData }] = await Promise.all([
       supabase
         .from("classes")
         .select("id, box_id, name, type, day, time, capacity, location")
@@ -168,12 +206,28 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
         .gte("date", new Date().toISOString().slice(0, 10))
         .order("date", { ascending: true })
         .limit(1)
-        .maybeSingle<WodRow>()
+        .maybeSingle<WodRow>(),
+      supabase
+        .from("inventory")
+        .select("id, equipment, category, quantity, estimated_cost, status")
+        .eq("box_id", box.id)
+        .gt("quantity", 0)
+        .order("equipment", { ascending: true })
+        .limit(20),
+      supabase
+        .from("credit_requests")
+        .select("id, product, quantity, total, status")
+        .eq("box_id", box.id)
+        .eq("member_id", member.id)
+        .order("created_at", { ascending: false })
+        .limit(6)
     ]);
 
     classes = (classData ?? []) as ClassRow[];
     attendance = (attendanceData ?? []) as AttendanceRow[];
     wod = wodData ?? null;
+    products = (productData ?? []) as InventoryProduct[];
+    creditRequests = (creditData ?? []) as CreditRequest[];
   }
 
   const dates = nextDates();
@@ -262,7 +316,7 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
                   <h2 className="text-2xl font-black">{member.name}</h2>
                   <p className="mt-1 text-sm text-[#aab0bd]">{member.plan} · vence {member.end_date}</p>
                 </div>
-                <span className="rounded-full bg-[#183b2d] px-3 py-1 text-xs font-black text-[#8cf0bd]">{member.status}</span>
+                <span className="rounded-full bg-[#183b2d] px-3 py-1 text-xs font-black text-[#8cf0bd]">{memberStatusCopy[member.status] ?? member.status}</span>
               </div>
             </div>
 
@@ -332,6 +386,59 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
               )}
             </div>
 
+            <div id="tienda" className="mb-4 scroll-mt-4 rounded-lg border border-[#272b35] bg-[#11141a] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="text-[#f4c430]" size={20} />
+                  <h3 className="font-black">Tienda del box</h3>
+                </div>
+                <span className="text-xs font-bold text-[#aab0bd]">{products.length} productos</span>
+              </div>
+
+              {creditRequests.length ? (
+                <div className="mb-3 grid gap-2">
+                  {creditRequests.map((request) => (
+                    <div key={request.id} className="rounded-md border border-[#272b35] bg-black/20 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong>{request.product}</strong>
+                        <span className="rounded-full bg-[#303541] px-2 py-1 text-xs font-black text-[#f8f3e6]">
+                          {creditStatusCopy[request.status] ?? request.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[#aab0bd]">{request.quantity} pza · {money(Number(request.total ?? 0))}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3">
+                {products.length ? products.map((product) => (
+                  <article key={product.id} className="rounded-md border border-[#272b35] bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black">{product.equipment}</p>
+                        <p className="text-sm text-[#aab0bd]">{product.category ?? "Producto"} · {Number(product.quantity ?? 0)} disponibles</p>
+                      </div>
+                      <p className="font-black text-[#f4c430]">{Number(product.estimated_cost ?? 0) > 0 ? money(Number(product.estimated_cost)) : "Precio en recepcion"}</p>
+                    </div>
+                    <form action={requestCredit} className="mt-3 grid grid-cols-[76px_1fr] gap-2">
+                      <input type="hidden" name="member_id" value={member.id} />
+                      <input type="hidden" name="inventory_id" value={product.id} />
+                      <input type="hidden" name="email" value={email} />
+                      <input className="min-h-11 rounded-md border border-[#272b35] bg-[#050506] px-3 text-center font-black" min="1" max={Number(product.quantity ?? 1)} name="quantity" type="number" defaultValue="1" />
+                      <button className="min-h-11 rounded-md border border-[#f4c430] bg-[#f4c430] font-black text-black" type="submit">
+                        Pedir fiado
+                      </button>
+                    </form>
+                  </article>
+                )) : (
+                  <p className="rounded-md border border-[#272b35] bg-black/20 p-3 text-sm text-[#aab0bd]">
+                    Aun no hay productos con inventario disponible.
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div id="reservas" className="mb-3 flex scroll-mt-4 items-center justify-between">
               <h3 className="text-lg font-black">Proximas clases</h3>
               <span className="text-xs font-bold text-[#aab0bd]">{sessions.length} opciones</span>
@@ -386,9 +493,9 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
             <CalendarDays className="mx-auto mb-1" size={16} />
             Reservas
           </a>
-          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#wod">
-            <Dumbbell className="mx-auto mb-1" size={16} />
-            WOD
+          <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#tienda">
+            <ShoppingBag className="mx-auto mb-1" size={16} />
+            Tienda
           </a>
           <a className="rounded-md py-2 transition hover:bg-[#11141a] hover:text-[#f4c430]" href="#qr-checkin">
             <CheckCircle2 className="mx-auto mb-1" size={16} />

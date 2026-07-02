@@ -7,6 +7,70 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 
 type Row = Record<string, string | number | boolean | null>;
 
+const columnLabels: Record<string, string> = {
+  active: "Activo",
+  amount: "Monto",
+  capacity: "Cupo",
+  category: "Categoria",
+  class_id: "Clase",
+  concept: "Concepto",
+  date: "Fecha",
+  day: "Dia",
+  due_date: "Vencimiento",
+  email: "Email",
+  end_date: "Vencimiento",
+  equipment: "Producto/equipo",
+  focus: "Enfoque",
+  location: "Ubicacion",
+  maintenance_date: "Mantenimiento",
+  member_id: "Socio",
+  method: "Metodo",
+  monthly_amount: "Monto mensual",
+  name: "Nombre",
+  notes: "Notas",
+  owner: "Responsable",
+  phone: "Telefono",
+  plan: "Plan",
+  priority: "Prioridad",
+  product: "Producto",
+  quantity: "Cantidad",
+  rate: "Tarifa",
+  role: "Rol",
+  status: "Estado",
+  time: "Hora",
+  title: "Tarea",
+  total: "Total",
+  type: "Tipo",
+  unit_price: "Precio unitario"
+};
+
+const valueLabels: Record<string, string> = {
+  active: "Activo",
+  approved: "Aprobado",
+  completed: "Completada",
+  expired: "Vencido",
+  expiring: "Proximo a vencer",
+  false: "Inactivo",
+  high: "Alta",
+  in_progress: "En proceso",
+  low: "Baja",
+  medium: "Media",
+  paused: "Pausado",
+  pending: "Pendiente",
+  rejected: "Rechazado",
+  true: "Activo"
+};
+
+function displayLabel(value: string | number | boolean | null | undefined) {
+  if (value === null || value === undefined || value === "") return "";
+  const key = String(value);
+  return valueLabels[key] ?? key;
+}
+
+function headerLabel(column: string) {
+  return columnLabels[column] ?? column.replaceAll("_", " ");
+}
+
 function fieldControl(field: ModuleConfig["fields"][number], row?: Row) {
   const value = row?.[field.name];
 
@@ -17,7 +81,7 @@ function fieldControl(field: ModuleConfig["fields"][number], row?: Row) {
   if (field.type === "select") {
     return (
       <select name={field.name} required={field.required} defaultValue={String(value ?? field.options?.[0] ?? "")}>
-        {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+        {(field.options ?? []).map((option) => <option key={option} value={option}>{displayLabel(option)}</option>)}
       </select>
     );
   }
@@ -108,17 +172,21 @@ export async function CrudPage({ config }: { config: ModuleConfig }) {
 
       {writable ? (
         <Card>
-          <CardHeader><h2 className="font-black">Nuevo registro</h2></CardHeader>
           <CardBody>
-            <form action={createRecord.bind(null, config.key as ModuleKey)} className="grid gap-3 md:grid-cols-2">
-              {config.fields.map((field) => (
-                <label key={field.name} className={field.type === "textarea" ? "grid gap-2 text-sm font-bold md:col-span-2" : "grid gap-2 text-sm font-bold"}>
-                  {field.label}
-                  {fieldControl(field)}
-                </label>
-              ))}
-              <Button variant="primary" className="md:col-span-2">Guardar</Button>
-            </form>
+            <details>
+              <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-wod-gold bg-wod-gold px-4 text-sm font-black text-black transition hover:bg-[#ffdc5a]">
+                Agregar {config.title.toLowerCase()}
+              </summary>
+              <form action={createRecord.bind(null, config.key as ModuleKey)} className="mt-4 grid gap-3 border-t border-wod-line pt-4 md:grid-cols-2">
+                {config.fields.map((field) => (
+                  <label key={field.name} className={field.type === "textarea" ? "grid gap-2 text-sm font-bold md:col-span-2" : "grid gap-2 text-sm font-bold"}>
+                    {field.label}
+                    {fieldControl(field)}
+                  </label>
+                ))}
+                <Button variant="primary" className="md:col-span-2">Guardar</Button>
+              </form>
+            </details>
           </CardBody>
         </Card>
       ) : null}
@@ -132,14 +200,14 @@ export async function CrudPage({ config }: { config: ModuleConfig }) {
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-wod-line text-left text-wod-gold">
-                {config.columns.map((column) => <th key={column} className="p-3 uppercase">{column}</th>)}
+                {config.columns.map((column) => <th key={column} className="p-3 uppercase">{headerLabel(column)}</th>)}
                 {writable ? <th className="p-3 uppercase">Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={String(row.id)} className="border-b border-wod-line/60">
-                  {config.columns.map((column) => <td key={column} className="p-3">{String(row[column] ?? "")}</td>)}
+                  {config.columns.map((column) => <td key={column} className="p-3">{displayLabel(row[column])}</td>)}
                   {writable ? (
                     <td className="p-3 align-top">
                       <details className="mb-2">

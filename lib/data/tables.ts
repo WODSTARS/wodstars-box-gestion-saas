@@ -60,7 +60,7 @@ export const modules: Record<ModuleKey, ModuleConfig> = {
       { name: "date", label: "Fecha", type: "date", required: true },
       { name: "concept", label: "Concepto", type: "text", required: true },
       { name: "amount", label: "Monto", type: "number", required: true },
-      { name: "method", label: "Método", type: "select", options: ["Efectivo", "Tarjeta", "Transferencia", "Mercado Pago", "Otro"] },
+      { name: "method", label: "Método", type: "select", options: ["Efectivo", "Tarjeta", "Transferencia", "Mercado Pago", "Fiado", "Otro"] },
       { name: "notes", label: "Notas", type: "textarea" }
     ]
   },
@@ -76,7 +76,7 @@ export const modules: Record<ModuleKey, ModuleConfig> = {
       { name: "quantity", label: "Cantidad", type: "number", required: true },
       { name: "unit_price", label: "Precio unitario", type: "number", required: true },
       { name: "total", label: "Total", type: "number", required: true },
-      { name: "method", label: "Método", type: "select", options: ["Efectivo", "Tarjeta", "Transferencia", "Mercado Pago", "Otro"] },
+      { name: "method", label: "Método", type: "select", options: ["Efectivo", "Tarjeta", "Transferencia", "Mercado Pago", "Fiado", "Otro"] },
       { name: "notes", label: "Notas", type: "textarea" }
     ]
   },
@@ -161,11 +161,12 @@ export const modules: Record<ModuleKey, ModuleConfig> = {
     title: "Inventario",
     table: "inventory",
     description: "Equipo, estado, costos y mantenimiento.",
-    columns: ["equipment", "category", "quantity", "status", "maintenance_date"],
+    columns: ["equipment", "category", "quantity", "estimated_cost", "status", "maintenance_date"],
     fields: [
       { name: "equipment", label: "Equipo", type: "text", required: true },
       { name: "category", label: "Categoría", type: "text" },
       { name: "quantity", label: "Cantidad", type: "number" },
+      { name: "estimated_cost", label: "Precio/costo", type: "number" },
       { name: "status", label: "Estado", type: "select", options: ["Bueno", "Revisar", "Comprar", "Comprado", "Fuera de servicio"] },
       { name: "maintenance_date", label: "Mantenimiento", type: "date" },
       { name: "notes", label: "Notas", type: "textarea" }

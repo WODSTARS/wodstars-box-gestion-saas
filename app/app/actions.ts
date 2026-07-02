@@ -76,3 +76,57 @@ export async function reserveClass(formData: FormData) {
 
   backToApp(email, "reserved");
 }
+
+export async function requestCredit(formData: FormData) {
+  const memberId = String(formData.get("member_id") || "");
+  const inventoryId = String(formData.get("inventory_id") || "");
+  const email = String(formData.get("email") || "");
+  const quantity = Math.max(1, Number(formData.get("quantity") || 1));
+
+  if (!memberId || !inventoryId || !email) {
+    backToApp(email, "credit_missing");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: member } = await supabase
+    .from("members")
+    .select("id, box_id, status")
+    .eq("id", memberId)
+    .single();
+
+  if (!member || member.status !== "active") {
+    backToApp(email, "inactive");
+  }
+
+  const { data: item } = await supabase
+    .from("inventory")
+    .select("id, box_id, equipment, quantity, estimated_cost")
+    .eq("id", inventoryId)
+    .single();
+
+  if (!item || item.box_id !== member.box_id) {
+    backToApp(email, "credit_invalid");
+  }
+
+  if (Number(item.quantity ?? 0) < quantity) {
+    backToApp(email, "credit_stock");
+  }
+
+  const unitPrice = Number(item.estimated_cost ?? 0);
+  const { error } = await supabase.from("credit_requests").insert({
+    box_id: member.box_id,
+    member_id: member.id,
+    inventory_id: item.id,
+    product: item.equipment,
+    quantity,
+    unit_price: unitPrice,
+    total: unitPrice * quantity,
+    status: "pending"
+  });
+
+  if (error) {
+    backToApp(email, "credit_error");
+  }
+
+  backToApp(email, "credit_requested");
+}
