@@ -17,6 +17,17 @@ function parseValue(value: FormDataEntryValue | null) {
   return value;
 }
 
+function isUuid(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ""));
+}
+
+function sanitizePayload(payload: Record<string, unknown>) {
+  if ("coach_id" in payload && !isUuid(payload.coach_id)) payload.coach_id = null;
+  if ("member_id" in payload && payload.member_id !== null && !isUuid(payload.member_id)) payload.member_id = null;
+  if ("class_id" in payload && payload.class_id !== null && !isUuid(payload.class_id)) payload.class_id = null;
+  return payload;
+}
+
 async function decrementInventoryForProduct(supabase: SupabaseServer, boxId: string, product: unknown, quantity: unknown) {
   const productName = String(product ?? "").trim();
   const amount = Math.max(1, Number(quantity ?? 1));
@@ -73,6 +84,7 @@ export async function createRecord(moduleKey: ModuleKey, formData: FormData) {
     if (field.type === "checkbox") payload[field.name] = formData.get(field.name) === "on";
     else payload[field.name] = parseValue(formData.get(field.name));
   });
+  sanitizePayload(payload);
 
   const supabase = await createSupabaseServerClient();
   const insertQuery = supabase.from(config.table).insert(payload);
@@ -129,6 +141,7 @@ export async function updateRecord(moduleKey: ModuleKey, id: string, formData: F
     if (field.type === "checkbox") payload[field.name] = formData.get(field.name) === "on";
     else payload[field.name] = parseValue(formData.get(field.name));
   });
+  sanitizePayload(payload);
 
   const supabase = await createSupabaseServerClient();
   const query = supabase.from(config.table).update(payload).eq("id", id);

@@ -117,7 +117,6 @@ export const modules: Record<ModuleKey, ModuleConfig> = {
     fields: [
       { name: "name", label: "Nombre", type: "text", required: true },
       { name: "type", label: "Tipo", type: "text", required: true },
-      { name: "coach_id", label: "Coach ID", type: "text" },
       { name: "day", label: "Día", type: "select", options: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"] },
       { name: "time", label: "Hora", type: "time", required: true },
       { name: "capacity", label: "Capacidad", type: "number" },
