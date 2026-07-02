@@ -22,9 +22,9 @@ export default async function ReportsPage() {
 
   const [members, payments, sales, expenses, attendance, classes] = await Promise.all([
     supabase.from("members").select("id,plan,status,start_date,end_date").eq("box_id", boxId),
-    supabase.from("payments").select("amount,date,method").eq("box_id", boxId),
-    supabase.from("sales").select("total,date,method").eq("box_id", boxId),
-    supabase.from("expenses").select("amount,date,category").eq("box_id", boxId),
+    supabase.from("payments").select("amount,date,method,concept,notes").eq("box_id", boxId).order("date", { ascending: false }),
+    supabase.from("sales").select("total,date,method,product,quantity").eq("box_id", boxId).order("date", { ascending: false }),
+    supabase.from("expenses").select("amount,date,category,concept,method").eq("box_id", boxId).order("date", { ascending: false }),
     supabase.from("attendance").select("date,class_id").eq("box_id", boxId),
     supabase.from("classes").select("id,name,time").eq("box_id", boxId)
   ]);
@@ -56,6 +56,14 @@ export default async function ReportsPage() {
     ["Hora mas ocupada", busiestHour],
     ["Clase con mas asistencia", busiestClass?.name ?? "Sin datos"]
   ];
+  const monthlyPayments = paymentRows.filter((p) => p.date?.startsWith(month));
+  const monthlySales = saleRows.filter((s) => s.date?.startsWith(month));
+  const monthlyExpenses = expenseRows.filter((e) => e.date?.startsWith(month));
+  const expenseByCategory = [...monthlyExpenses.reduce((map, item) => {
+    const key = String(item.category ?? "Sin categoria");
+    map.set(key, (map.get(key) ?? 0) + Number(item.amount ?? 0));
+    return map;
+  }, new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="grid gap-5">
@@ -88,6 +96,117 @@ export default async function ReportsPage() {
           <p>La hora mas ocupada registrada es {busiestHour}. Usa este dato para ajustar staff, cupos y horarios.</p>
         </CardBody>
       </Card>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <h2 className="font-black">Gastos por categoria</h2>
+            <span className="text-sm text-wod-muted">{currency(costs)} total</span>
+          </CardHeader>
+          <CardBody className="grid gap-3">
+            {expenseByCategory.length ? expenseByCategory.map(([category, amount]) => (
+              <div key={category} className="rounded-md border border-wod-line bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{category}</strong>
+                  <span className="font-black text-wod-gold">{currency(amount)}</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-wod-line">
+                  <div className="h-full rounded-full bg-wod-gold" style={{ width: `${Math.min(100, Math.round((amount / Math.max(costs, 1)) * 100))}%` }} />
+                </div>
+              </div>
+            )) : <p className="text-wod-muted">Sin gastos registrados este mes.</p>}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 className="font-black">Corte financiero</h2>
+            <span className="text-sm text-wod-muted">{month}</span>
+          </CardHeader>
+          <CardBody className="grid gap-3">
+            {[
+              ["Pagos de mensualidad", income],
+              ["Ventas de productos", salesIncome],
+              ["Gastos", costs],
+              ["Utilidad estimada", income + salesIncome - costs]
+            ].map(([label, value]) => (
+              <div key={String(label)} className="flex items-center justify-between rounded-md border border-wod-line bg-black/20 p-3">
+                <span className="text-wod-muted">{label}</span>
+                <strong className="text-wod-gold">{currency(Number(value))}</strong>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <h2 className="font-black">Detalle de gastos</h2>
+          <span className="text-sm text-wod-muted">{monthlyExpenses.length} registros</span>
+        </CardHeader>
+        <CardBody className="overflow-auto">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-wod-line text-left text-wod-gold">
+                <th className="p-3 uppercase">Fecha</th>
+                <th className="p-3 uppercase">Categoria</th>
+                <th className="p-3 uppercase">Concepto</th>
+                <th className="p-3 uppercase">Metodo</th>
+                <th className="p-3 uppercase">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyExpenses.map((expense, index) => (
+                <tr key={`${expense.date}-${expense.concept}-${index}`} className="border-b border-wod-line/60">
+                  <td className="p-3">{expense.date}</td>
+                  <td className="p-3">{expense.category ?? ""}</td>
+                  <td className="p-3">{expense.concept ?? ""}</td>
+                  <td className="p-3">{expense.method ?? ""}</td>
+                  <td className="p-3 font-black">{currency(Number(expense.amount ?? 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardBody>
+      </Card>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <h2 className="font-black">Pagos recibidos</h2>
+            <span className="text-sm text-wod-muted">{monthlyPayments.length} registros</span>
+          </CardHeader>
+          <CardBody className="grid gap-2">
+            {monthlyPayments.slice(0, 12).map((payment, index) => (
+              <div key={`${payment.date}-${payment.concept}-${index}`} className="rounded-md border border-wod-line bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{payment.concept ?? "Pago"}</strong>
+                  <span className="font-black text-wod-gold">{currency(Number(payment.amount ?? 0))}</span>
+                </div>
+                <p className="mt-1 text-sm text-wod-muted">{payment.date} · {payment.method ?? "Sin metodo"}</p>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 className="font-black">Ventas de productos</h2>
+            <span className="text-sm text-wod-muted">{monthlySales.length} registros</span>
+          </CardHeader>
+          <CardBody className="grid gap-2">
+            {monthlySales.slice(0, 12).map((sale, index) => (
+              <div key={`${sale.date}-${sale.product}-${index}`} className="rounded-md border border-wod-line bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{sale.product ?? "Venta"}</strong>
+                  <span className="font-black text-wod-gold">{currency(Number(sale.total ?? 0))}</span>
+                </div>
+                <p className="mt-1 text-sm text-wod-muted">{sale.date} · {sale.quantity ?? 1} pza · {sale.method ?? "Sin metodo"}</p>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }

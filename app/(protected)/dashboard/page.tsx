@@ -103,10 +103,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
           { label: "Socios activos", value: active, detail: `${expiring.length} por vencer`, icon: Users },
-          { label: "Ingresos este mes", value: currency(totalIncome), detail: `Neto ${currency(net)}`, icon: WalletCards },
+          { label: "Ingresos este mes", value: currency(totalIncome), detail: `Pagos ${currency(monthIncome)} · ventas ${currency(monthSales)}`, icon: WalletCards },
+          { label: "Gastos del mes", value: currency(monthExpenses), detail: `Utilidad ${currency(net)}`, icon: WalletCards },
           { label: "Asistencia hoy", value: todayAttendance, detail: `${attendanceRate}% de socios activos`, icon: Activity },
           { label: "Membresias vencidas", value: expired.length, detail: "Requieren seguimiento", icon: AlertTriangle }
         ].map((item) => (

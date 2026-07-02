@@ -9,7 +9,7 @@ export function PrintButton() {
       onClick={() => window.print()}
       type="button"
     >
-      <Printer size={18} /> Generar PDF
+      <Printer size={18} /> Descargar PDF
     </button>
   );
 }

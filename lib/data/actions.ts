@@ -75,8 +75,29 @@ export async function createRecord(moduleKey: ModuleKey, formData: FormData) {
   });
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from(config.table).insert(payload);
+  const insertQuery = supabase.from(config.table).insert(payload);
+  const result = moduleKey === "members" ? await insertQuery.select("id, name, monthly_amount, start_date").single() : await insertQuery;
+  const { error } = result;
   if (error) throw new Error(error.message);
+  if (moduleKey === "members") {
+    const member = "data" in result ? result.data : null;
+    const amount = Number(member?.monthly_amount ?? payload.monthly_amount ?? 0);
+    if (amount > 0) {
+      const paymentDate = String(member?.start_date ?? payload.start_date ?? new Date().toISOString().slice(0, 10));
+      const { error: paymentError } = await supabase.from("payments").insert({
+        box_id: session.boxId,
+        member_id: member?.id ?? null,
+        date: paymentDate,
+        concept: `Mensualidad inicial - ${String(member?.name ?? payload.name ?? "Socio")}`,
+        amount,
+        method: "Sistema",
+        notes: "Pago generado automaticamente al crear socio"
+      });
+      if (paymentError) throw new Error(paymentError.message);
+      revalidatePath("/payments");
+      revalidatePath("/dashboard");
+    }
+  }
   if (moduleKey === "sales") {
     await decrementInventoryForProduct(supabase, session.boxId, payload.product, payload.quantity);
     revalidatePath("/inventory");

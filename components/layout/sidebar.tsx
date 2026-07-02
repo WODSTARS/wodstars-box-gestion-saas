@@ -25,8 +25,8 @@ const nav = [
 
 export function Sidebar({ session }: { session: AppSession }) {
   return (
-    <aside className="sticky top-0 h-screen w-72 border-r border-wod-line bg-black/50 p-4 backdrop-blur">
-      <div className="mb-6 border-b border-wod-line pb-4">
+    <aside className="sticky top-0 flex h-screen w-72 flex-col border-r border-wod-line bg-black/50 p-4 backdrop-blur">
+      <div className="shrink-0 border-b border-wod-line pb-4">
         <img
           src="/wodstar-logo-transparent.png"
           alt="WODSTARS Gestion"
@@ -37,7 +37,7 @@ export function Sidebar({ session }: { session: AppSession }) {
         <p className="mt-1 text-sm text-wod-muted">powered by WodStars</p>
       </div>
 
-      <nav className="grid gap-1">
+      <nav className="mt-4 grid flex-1 content-start gap-1 overflow-y-auto pr-1">
         {nav.map((item) => (
           <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-bold text-wod-muted transition hover:bg-wod-panel2 hover:text-wod-gold">
             <item.icon size={18} />
@@ -52,7 +52,7 @@ export function Sidebar({ session }: { session: AppSession }) {
         ) : null}
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-wod-line bg-wod-panel p-3">
+      <div className="mt-4 shrink-0 rounded-lg border border-wod-line bg-wod-panel p-3">
         <p className="font-black">{session.fullName}</p>
         <p className="mb-3 text-sm text-wod-muted">{session.role}</p>
         <form action={signOut}>
