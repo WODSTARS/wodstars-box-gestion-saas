@@ -10,6 +10,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <Card className="w-full max-w-md">
         <CardBody>
           <div className="mb-6 text-center">
+            <img
+              src="/wodstar-logo-transparent.png"
+              alt="WODSTARS Gestion"
+              className="mx-auto mb-4 h-28 w-28 object-contain drop-shadow-[0_16px_32px_rgba(244,196,48,.22)]"
+            />
             <p className="text-xs font-black uppercase tracking-[.18em] text-wod-gold">WodStars Box Gestión</p>
             <h1 className="mt-2 text-3xl font-black">Acceso al box</h1>
             <p className="mt-2 text-wod-muted">Login en la nube con Supabase Auth.</p>

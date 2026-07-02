@@ -24,6 +24,11 @@ export function Sidebar({ session }: { session: AppSession }) {
   return (
     <aside className="sticky top-0 h-screen w-72 border-r border-wod-line bg-black/50 p-4 backdrop-blur">
       <div className="mb-6 border-b border-wod-line pb-4">
+        <img
+          src="/wodstar-logo-transparent.png"
+          alt="WODSTARS Gestion"
+          className="mb-3 h-16 w-16 object-contain drop-shadow-[0_12px_28px_rgba(244,196,48,.24)]"
+        />
         <p className="text-xs font-black uppercase tracking-[.18em] text-wod-gold">WodStars Box</p>
         <h1 className="mt-1 text-xl font-black">{session.box?.name ?? "Superadmin"}</h1>
         <p className="mt-1 text-sm text-wod-muted">powered by WodStars</p>

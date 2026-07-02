@@ -190,9 +190,11 @@ export default async function MobileAppPage({ searchParams }: { searchParams?: P
             <p className="text-xs font-black uppercase tracking-[.2em] text-[#f4c430]">WODSTARS app</p>
             <h1 className="mt-1 text-3xl font-black">Reserva tu clase</h1>
           </div>
-          <div className="grid h-12 w-12 place-items-center rounded-full bg-[#f4c430] text-black">
-            <Dumbbell size={22} />
-          </div>
+          <img
+            src="/wodstar-logo-transparent.png"
+            alt="WODSTARS Gestion"
+            className="h-16 w-16 object-contain drop-shadow-[0_12px_28px_rgba(244,196,48,.28)]"
+          />
         </div>
 
         <div className="mb-5 rounded-lg border border-[#272b35] bg-[#11141a] p-4">

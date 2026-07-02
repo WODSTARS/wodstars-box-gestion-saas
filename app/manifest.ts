@@ -12,10 +12,10 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait",
     icons: [
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable"
+        src: "/wodstar-logo-transparent.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
       }
     ]
   };
