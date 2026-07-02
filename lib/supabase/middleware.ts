@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
-  const publicRoutes = ["/login", "/blocked"];
+  const publicRoutes = ["/login", "/blocked", "/app", "/api/webhooks", "/api/cron"];
 
   if (!user && !publicRoutes.some((route) => pathname.startsWith(route))) {
     const url = request.nextUrl.clone();

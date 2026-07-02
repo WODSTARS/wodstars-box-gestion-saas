@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, BarChart3, CalendarDays, ClipboardList, Dumbbell, Home, Package, ReceiptText, Settings, Shield, ShoppingCart, Users, WalletCards } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, ClipboardList, Dumbbell, Home, Package, ReceiptText, Settings, Shield, ShoppingCart, Smartphone, Users, WalletCards } from "lucide-react";
 import { signOut } from "@/lib/data/actions";
 import type { AppSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const nav = [
   { href: "/staff", label: "Staff", icon: Shield },
   { href: "/inventory", label: "Inventario", icon: Package },
   { href: "/tasks", label: "Tareas", icon: ClipboardList },
+  { href: "/app", label: "App atletas", icon: Smartphone },
   { href: "/settings", label: "Ajustes", icon: Settings }
 ];
 
